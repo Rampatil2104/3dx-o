@@ -1,4 +1,3 @@
-//hi
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
@@ -20,28 +19,6 @@ function App() {
   const boardGroupRef = useRef(null);
   const cellsRef = useRef([]);
   const gameObjectsRef = useRef([]);
-
-  const getResponsiveScale = useCallback(() => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const aspectRatio = width / height;
-    
-    // Base scale for desktop
-    let scale = 1;
-    
-    // Adjust for mobile
-    if (width <= 768) {
-      if (aspectRatio < 0.75) { // Tall phones (like iPhone 12 Pro)
-        scale = 1.8;
-      } else if (aspectRatio < 1) { // Regular phones
-        scale = 1.5;
-      } else { // Landscape phones
-        scale = 1.3;
-      }
-    }
-    
-    return scale;
-  }, []);
 
   const checkWinner = useCallback((currentBoard) => {
     const lines = [
@@ -95,152 +72,7 @@ function App() {
     }
 
     return -1;
-  }, [checkWinner]);const setupScene = useCallback(() => {
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a1a);
-
-    // Camera setup with responsive positioning
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    
-    // Adjust camera position based on screen size
-    const isMobile = window.innerWidth <= 768;
-    if (isMobile) {
-      const aspectRatio = window.innerWidth / window.innerHeight;
-      if (aspectRatio < 0.75) { // Tall phones
-        camera.position.set(0, 7, 4);
-      } else { // Wide phones
-        camera.position.set(0, 6, 5);
-      }
-    } else {
-      camera.position.set(0, 5, 5);
-    }
-    camera.lookAt(0, 0, 0);
-
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    mountRef.current.appendChild(renderer.domElement);
-
-    // Controls with responsive constraints
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.screenSpacePanning = false;
-    controls.minDistance = isMobile ? 4 : 5;
-    controls.maxDistance = isMobile ? 10 : 15;
-    controls.maxPolarAngle = Math.PI / 2;
-
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(5, 5, 5);
-    directionalLight.castShadow = true;
-    scene.add(directionalLight);
-
-    sceneRef.current = scene;
-    cameraRef.current = camera;
-    rendererRef.current = renderer;
-    controlsRef.current = controls;
-
-    // Animation loop
-    const animate = () => {
-      requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    };
-    animate();
-
-    // Enhanced resize handler for responsiveness
-    const handleResize = () => {
-      const newScale = getResponsiveScale();
-      camera.aspect = window.innerWidth / window.innerHeight;
-      
-      // Adjust camera position on resize
-      const isMobile = window.innerWidth <= 768;
-      const aspectRatio = window.innerWidth / window.innerHeight;
-      
-      if (isMobile) {
-        if (aspectRatio < 0.75) {
-          camera.position.set(0, 7, 4);
-        } else {
-          camera.position.set(0, 6, 5);
-        }
-        controls.minDistance = 4;
-        controls.maxDistance = 10;
-      } else {
-        camera.position.set(0, 5, 5);
-        controls.minDistance = 5;
-        controls.maxDistance = 15;
-      }
-      
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      
-      // Update board scale if it exists
-      if (boardGroupRef.current) {
-        boardGroupRef.current.scale.set(1/newScale, 1/newScale, 1/newScale);
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      renderer.dispose();
-      mountRef.current?.removeChild(renderer.domElement);
-    };
-  }, [getResponsiveScale]);
-
-  const createBoard = useCallback(() => {
-    const boardGroup = new THREE.Group();
-    boardGroupRef.current = boardGroup;
-
-    const scale = getResponsiveScale();
-    boardGroup.scale.set(1/scale, 1/scale, 1/scale);
-
-    // Create base board
-    const baseGeometry = new THREE.BoxGeometry(6, 0.2, 6);
-    const baseMaterial = new THREE.MeshPhongMaterial({
-      color: 0x2196f3,
-      opacity: 1,
-      transparent: false,
-    });
-    const base = new THREE.Mesh(baseGeometry, baseMaterial);
-    base.receiveShadow = true;
-    boardGroup.add(base);
-
-    // Create grid cells
-    const cellGeometry = new THREE.BoxGeometry(1.8, 0.1, 1.8);
-    const cellMaterial = new THREE.MeshPhongMaterial({
-      color: 0x1976d2,
-      opacity: 1,
-      transparent: false,
-    });
-
-    cellsRef.current = [];
-    for (let i = 0; i < 9; i++) {
-      const x = (i % 3) - 1;
-      const z = Math.floor(i / 3) - 1;
-      
-      const cell = new THREE.Mesh(cellGeometry, cellMaterial);
-      cell.position.set(x * 2, 0.1, z * 2);
-      cell.userData.cellIndex = i;
-      cellsRef.current.push(cell);
-      boardGroup.add(cell);
-    }
-
-    sceneRef.current.add(boardGroup);
-  }, [getResponsiveScale]);
-
-  const clearGameObjects = useCallback(() => {
+  }, [checkWinner]);const clearGameObjects = useCallback(() => {
     if (sceneRef.current) {
       gameObjectsRef.current.forEach(obj => {
         if (obj.geometry) obj.geometry.dispose();
@@ -261,21 +93,122 @@ function App() {
         cellsRef.current = [];
       }
     }
+  }, []);
+
+  const createBoard = useCallback(() => {
+    const boardGroup = new THREE.Group();
+    boardGroupRef.current = boardGroup;
+
+    // Create smaller base board
+    const baseGeometry = new THREE.BoxGeometry(4.5, 0.2, 4.5); // Reduced from 6 to 4.5
+    const baseMaterial = new THREE.MeshPhongMaterial({
+      color: 0x2196f3,
+      opacity: 1,
+      transparent: false,
+    });
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    base.receiveShadow = true;
+    boardGroup.add(base);
+
+    // Create grid cells with adjusted size
+    const cellGeometry = new THREE.BoxGeometry(1.35, 0.1, 1.35); // Adjusted cell size (4.5/3 * 0.9)
+    const cellMaterial = new THREE.MeshPhongMaterial({
+      color: 0x1976d2,
+      opacity: 1,
+      transparent: false,
+    });
+
+    cellsRef.current = [];
+    const offset = 1.5; // New offset based on smaller board size (4.5/3)
+
+    for (let i = 0; i < 9; i++) {
+      const x = (i % 3 - 1) * offset;
+      const z = (Math.floor(i / 3) - 1) * offset;
+      
+      const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+      cell.position.set(x, 0.1, z);
+      cell.userData.cellIndex = i;
+      cellsRef.current.push(cell);
+      boardGroup.add(cell);
+    }
+
+    sceneRef.current.add(boardGroup);
+  }, []);
+
+  const setupScene = useCallback(() => {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a1a);
+
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    // Position camera directly above board for straight view
+    camera.position.set(0, 7, 0);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    mountRef.current?.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.minDistance = 4; // Reduced min distance
+    controls.maxDistance = 10; // Reduced max distance
+    controls.maxPolarAngle = Math.PI / 2;
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    directionalLight.castShadow = true;
+    scene.add(directionalLight);
+
+    sceneRef.current = scene;
+    cameraRef.current = camera;
+    rendererRef.current = renderer;
+    controlsRef.current = controls;
+
+    const animate = () => {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    const handleResize = () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      renderer.dispose();
+      if (mountRef.current && renderer.domElement) {
+        mountRef.current.removeChild(renderer.domElement);
+      }
+    };
   }, []);const createX = useCallback((position) => {
     const group = new THREE.Group();
-    const scale = getResponsiveScale();
     
-    // Adjust size for mobile
-    const isMobile = window.innerWidth <= 768;
-    const size = isMobile ? 1.2 : 1.5;
-    const thickness = isMobile ? 0.2 : 0.3;
+    // Adjusted X size for smaller board
+    const xSize = 1.1;        // Reduced from 1.5
+    const thickness = 0.2;    // Reduced from 0.3
 
     const xMaterial = new THREE.MeshPhongMaterial({
       color: 0xff4444,
       shininess: 100,
     });
 
-    const bar1Geometry = new THREE.BoxGeometry(size, thickness, thickness);
+    const bar1Geometry = new THREE.BoxGeometry(xSize, thickness, thickness);
     const bar1 = new THREE.Mesh(bar1Geometry, xMaterial);
     bar1.rotation.y = Math.PI / 4;
     bar1.castShadow = true;
@@ -287,23 +220,16 @@ function App() {
     group.add(bar1);
     group.add(bar2);
     group.position.copy(position);
-    group.position.y = 0.3;
-    
-    // Apply device-specific scaling
-    const finalScale = 1 / (scale * (isMobile ? 1.2 : 1));
-    group.scale.set(finalScale, finalScale, finalScale);
+    group.position.y = 0.25; // Slightly lowered height
 
     sceneRef.current.add(group);
     gameObjectsRef.current.push(group);
-  }, [getResponsiveScale]);
+  }, []);
 
   const createO = useCallback((position) => {
-    const scale = getResponsiveScale();
-    const isMobile = window.innerWidth <= 768;
-    
-    // Adjust size for mobile
-    const radius = isMobile ? 0.5 : 0.6;
-    const thickness = isMobile ? 0.15 : 0.2;
+    // Adjusted O size for smaller board
+    const radius = 0.45;      // Reduced from 0.6
+    const thickness = 0.15;   // Reduced from 0.2
     
     const torusGeometry = new THREE.TorusGeometry(radius, thickness, 16, 32);
     const oMaterial = new THREE.MeshPhongMaterial({
@@ -313,17 +239,13 @@ function App() {
 
     const torus = new THREE.Mesh(torusGeometry, oMaterial);
     torus.position.copy(position);
-    torus.position.y = 0.3;
+    torus.position.y = 0.25; // Slightly lowered height
     torus.rotation.x = Math.PI / 2;
     torus.castShadow = true;
-    
-    // Apply device-specific scaling
-    const finalScale = 1 / (scale * (isMobile ? 1.2 : 1));
-    torus.scale.set(finalScale, finalScale, finalScale);
 
     sceneRef.current.add(torus);
     gameObjectsRef.current.push(torus);
-  }, [getResponsiveScale]);
+  }, []);
 
   const makeMove = useCallback((index) => {
     if (board[index] || gameState !== 'playing') return;
@@ -357,13 +279,7 @@ function App() {
     if (moveIndex !== -1) {
       setTimeout(() => makeMove(moveIndex), 500);
     }
-  }, [mode, currentPlayer, gameState, board, findBestMove, makeMove]);
-
-  useEffect(() => {
-    if (mode === 'cpu' && currentPlayer === 'O' && gameState === 'playing') {
-      makeCPUMove();
-    }
-  }, [currentPlayer, mode, gameState, makeCPUMove]);const handleStartGame = useCallback((selectedMode) => {
+  }, [mode, currentPlayer, gameState, board, findBestMove, makeMove]);const handleStartGame = useCallback((selectedMode) => {
     setMode(selectedMode);
     setGameState('playing');
     setBoard(Array(9).fill(null));
@@ -389,7 +305,6 @@ function App() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
-    // Calculate mouse position accounting for device pixel ratio
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
@@ -401,6 +316,12 @@ function App() {
       makeMove(cellIndex);
     }
   }, [gameState, mode, currentPlayer, makeMove]);
+
+  useEffect(() => {
+    if (mode === 'cpu' && currentPlayer === 'O' && gameState === 'playing') {
+      makeCPUMove();
+    }
+  }, [currentPlayer, mode, gameState, makeCPUMove]);
 
   useEffect(() => {
     const cleanup = setupScene();
