@@ -1,5 +1,6 @@
 import React from 'react';
 
+
 const GameOver = ({ winner, onRestart, onQuit }) => {
   const getMessage = () => {
     if (winner === 'draw') return "It's a Draw!";
