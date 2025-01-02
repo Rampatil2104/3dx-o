@@ -99,9 +99,6 @@ function App() {
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
-    // Responsive scaling
-    const scale = getResponsiveScale();
-    
     // Camera setup with responsive positioning
     const camera = new THREE.PerspectiveCamera(
       75,
