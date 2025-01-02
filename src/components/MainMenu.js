@@ -2,7 +2,7 @@ import React from 'react';
 
 const MainMenu = ({ onStartGame }) => {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-75">
+    <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-xl shadow-2xl transform transition-all">
         <h1 className="text-4xl font-bold text-white mb-8 text-center">
           Tic Tac Toe 3D

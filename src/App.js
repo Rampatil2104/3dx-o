@@ -18,51 +18,35 @@ function App() {
   const controlsRef = useRef(null);
   const boardGroupRef = useRef(null);
   const cellsRef = useRef([]);
+  const gameObjectsRef = useRef([]);
 
-  const findBestMove = useCallback((currentBoard) => {
-    // Check for winning move
-    for (let i = 0; i < 9; i++) {
-      if (!currentBoard[i]) {
-        const testBoard = [...currentBoard];
-        testBoard[i] = 'O';
-        if (checkWinner(testBoard) === 'O') return i;
+  const getResponsiveScale = useCallback(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const aspectRatio = width / height;
+    
+    // Base scale for desktop
+    let scale = 1;
+    
+    // Adjust for mobile
+    if (width <= 768) {
+      if (aspectRatio < 0.75) { // Tall phones (like iPhone 12 Pro)
+        scale = 1.8;
+      } else if (aspectRatio < 1) { // Regular phones
+        scale = 1.5;
+      } else { // Landscape phones
+        scale = 1.3;
       }
     }
-
-    // Block player's winning move
-    for (let i = 0; i < 9; i++) {
-      if (!currentBoard[i]) {
-        const testBoard = [...currentBoard];
-        testBoard[i] = 'X';
-        if (checkWinner(testBoard) === 'X') return i;
-      }
-    }
-
-    // Take center if available
-    if (!currentBoard[4]) return 4;
-
-    // Take corners
-    const corners = [0, 2, 6, 8];
-    const availableCorners = corners.filter(i => !currentBoard[i]);
-    if (availableCorners.length > 0) {
-      return availableCorners[Math.floor(Math.random() * availableCorners.length)];
-    }
-
-    // Take sides
-    const sides = [1, 3, 5, 7];
-    const availableSides = sides.filter(i => !currentBoard[i]);
-    if (availableSides.length > 0) {
-      return availableSides[Math.floor(Math.random() * availableSides.length)];
-    }
-
-    return -1;
+    
+    return scale;
   }, []);
 
-  const checkWinner = (currentBoard) => {
+  const checkWinner = useCallback((currentBoard) => {
     const lines = [
-      [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-      [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-      [0, 4, 8], [2, 4, 6] // Diagonals
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
     ];
 
     for (const [a, b, c] of lines) {
@@ -76,19 +60,68 @@ function App() {
     }
 
     return null;
-  };useEffect(() => {
+  }, []);
+
+  const findBestMove = useCallback((currentBoard) => {
+    for (let i = 0; i < 9; i++) {
+      if (!currentBoard[i]) {
+        const testBoard = [...currentBoard];
+        testBoard[i] = 'O';
+        if (checkWinner(testBoard) === 'O') return i;
+      }
+    }
+
+    for (let i = 0; i < 9; i++) {
+      if (!currentBoard[i]) {
+        const testBoard = [...currentBoard];
+        testBoard[i] = 'X';
+        if (checkWinner(testBoard) === 'X') return i;
+      }
+    }
+
+    if (!currentBoard[4]) return 4;
+
+    const corners = [0, 2, 6, 8];
+    const availableCorners = corners.filter(i => !currentBoard[i]);
+    if (availableCorners.length > 0) {
+      return availableCorners[Math.floor(Math.random() * availableCorners.length)];
+    }
+
+    const sides = [1, 3, 5, 7];
+    const availableSides = sides.filter(i => !currentBoard[i]);
+    if (availableSides.length > 0) {
+      return availableSides[Math.floor(Math.random() * availableSides.length)];
+    }
+
+    return -1;
+  }, [checkWinner]);const setupScene = useCallback(() => {
     // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a1a);
 
-    // Camera setup
+    // Responsive scaling
+    const scale = getResponsiveScale();
+    
+    // Camera setup with responsive positioning
     const camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    camera.position.set(0, 5, 5);
+    
+    // Adjust camera position based on screen size
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+      const aspectRatio = window.innerWidth / window.innerHeight;
+      if (aspectRatio < 0.75) { // Tall phones
+        camera.position.set(0, 7, 4);
+      } else { // Wide phones
+        camera.position.set(0, 6, 5);
+      }
+    } else {
+      camera.position.set(0, 5, 5);
+    }
     camera.lookAt(0, 0, 0);
 
     // Renderer setup
@@ -97,9 +130,14 @@ function App() {
     renderer.shadowMap.enabled = true;
     mountRef.current.appendChild(renderer.domElement);
 
-    // Controls
+    // Controls with responsive constraints
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.minDistance = isMobile ? 4 : 5;
+    controls.maxDistance = isMobile ? 10 : 15;
+    controls.maxPolarAngle = Math.PI / 2;
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -115,8 +153,7 @@ function App() {
     rendererRef.current = renderer;
     controlsRef.current = controls;
 
-    createBoard();
-
+    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
@@ -124,11 +161,36 @@ function App() {
     };
     animate();
 
-    // Handle window resize
+    // Enhanced resize handler for responsiveness
     const handleResize = () => {
+      const newScale = getResponsiveScale();
       camera.aspect = window.innerWidth / window.innerHeight;
+      
+      // Adjust camera position on resize
+      const isMobile = window.innerWidth <= 768;
+      const aspectRatio = window.innerWidth / window.innerHeight;
+      
+      if (isMobile) {
+        if (aspectRatio < 0.75) {
+          camera.position.set(0, 7, 4);
+        } else {
+          camera.position.set(0, 6, 5);
+        }
+        controls.minDistance = 4;
+        controls.maxDistance = 10;
+      } else {
+        camera.position.set(0, 5, 5);
+        controls.minDistance = 5;
+        controls.maxDistance = 15;
+      }
+      
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      
+      // Update board scale if it exists
+      if (boardGroupRef.current) {
+        boardGroupRef.current.scale.set(1/newScale, 1/newScale, 1/newScale);
+      }
     };
     window.addEventListener('resize', handleResize);
 
@@ -137,18 +199,21 @@ function App() {
       renderer.dispose();
       mountRef.current?.removeChild(renderer.domElement);
     };
-  }, []);
+  }, [getResponsiveScale]);
 
-  const createBoard = () => {
+  const createBoard = useCallback(() => {
     const boardGroup = new THREE.Group();
     boardGroupRef.current = boardGroup;
+
+    const scale = getResponsiveScale();
+    boardGroup.scale.set(1/scale, 1/scale, 1/scale);
 
     // Create base board
     const baseGeometry = new THREE.BoxGeometry(6, 0.2, 6);
     const baseMaterial = new THREE.MeshPhongMaterial({
       color: 0x2196f3,
-      opacity: 0.9,
-      transparent: true,
+      opacity: 1,
+      transparent: false,
     });
     const base = new THREE.Mesh(baseGeometry, baseMaterial);
     base.receiveShadow = true;
@@ -158,10 +223,11 @@ function App() {
     const cellGeometry = new THREE.BoxGeometry(1.8, 0.1, 1.8);
     const cellMaterial = new THREE.MeshPhongMaterial({
       color: 0x1976d2,
-      opacity: 0.5,
-      transparent: true,
+      opacity: 1,
+      transparent: false,
     });
 
+    cellsRef.current = [];
     for (let i = 0; i < 9; i++) {
       const x = (i % 3) - 1;
       const z = Math.floor(i / 3) - 1;
@@ -174,16 +240,44 @@ function App() {
     }
 
     sceneRef.current.add(boardGroup);
-  };const createX = (position) => {
-    const group = new THREE.Group();
+  }, [getResponsiveScale]);
 
-    // Create X using boxes
+  const clearGameObjects = useCallback(() => {
+    if (sceneRef.current) {
+      gameObjectsRef.current.forEach(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(mat => mat.dispose());
+          } else {
+            obj.material.dispose();
+          }
+        }
+        sceneRef.current.remove(obj);
+      });
+      gameObjectsRef.current = [];
+
+      if (boardGroupRef.current) {
+        sceneRef.current.remove(boardGroupRef.current);
+        boardGroupRef.current = null;
+        cellsRef.current = [];
+      }
+    }
+  }, []);const createX = useCallback((position) => {
+    const group = new THREE.Group();
+    const scale = getResponsiveScale();
+    
+    // Adjust size for mobile
+    const isMobile = window.innerWidth <= 768;
+    const size = isMobile ? 1.2 : 1.5;
+    const thickness = isMobile ? 0.2 : 0.3;
+
     const xMaterial = new THREE.MeshPhongMaterial({
       color: 0xff4444,
       shininess: 100,
     });
 
-    const bar1Geometry = new THREE.BoxGeometry(1.5, 0.3, 0.3);
+    const bar1Geometry = new THREE.BoxGeometry(size, thickness, thickness);
     const bar1 = new THREE.Mesh(bar1Geometry, xMaterial);
     bar1.rotation.y = Math.PI / 4;
     bar1.castShadow = true;
@@ -196,12 +290,24 @@ function App() {
     group.add(bar2);
     group.position.copy(position);
     group.position.y = 0.3;
+    
+    // Apply device-specific scaling
+    const finalScale = 1 / (scale * (isMobile ? 1.2 : 1));
+    group.scale.set(finalScale, finalScale, finalScale);
 
     sceneRef.current.add(group);
-  };
+    gameObjectsRef.current.push(group);
+  }, [getResponsiveScale]);
 
-  const createO = (position) => {
-    const torusGeometry = new THREE.TorusGeometry(0.6, 0.2, 16, 32);
+  const createO = useCallback((position) => {
+    const scale = getResponsiveScale();
+    const isMobile = window.innerWidth <= 768;
+    
+    // Adjust size for mobile
+    const radius = isMobile ? 0.5 : 0.6;
+    const thickness = isMobile ? 0.15 : 0.2;
+    
+    const torusGeometry = new THREE.TorusGeometry(radius, thickness, 16, 32);
     const oMaterial = new THREE.MeshPhongMaterial({
       color: 0x44ff44,
       shininess: 100,
@@ -212,65 +318,14 @@ function App() {
     torus.position.y = 0.3;
     torus.rotation.x = Math.PI / 2;
     torus.castShadow = true;
+    
+    // Apply device-specific scaling
+    const finalScale = 1 / (scale * (isMobile ? 1.2 : 1));
+    torus.scale.set(finalScale, finalScale, finalScale);
 
     sceneRef.current.add(torus);
-  };
-
-  const makeCPUMove = useCallback(() => {
-    if (mode !== 'cpu' || currentPlayer === 'X' || gameState !== 'playing') return;
-
-    const moveIndex = findBestMove(board);
-    if (moveIndex !== -1) {
-      setTimeout(() => makeMove(moveIndex), 500);
-    }
-  }, [mode, currentPlayer, gameState, board, findBestMove]);
-
-  useEffect(() => {
-    if (mode === 'cpu' && currentPlayer === 'O' && gameState === 'playing') {
-      makeCPUMove();
-    }
-  }, [currentPlayer, mode, gameState, makeCPUMove]);
-
-  const handleStartGame = useCallback((selectedMode) => {
-    setMode(selectedMode);
-    setGameState('playing');
-    setBoard(Array(9).fill(null));
-    setCurrentPlayer('X');
-    setWinner(null);
-
-    // Clear the board
-    if (sceneRef.current) {
-      const objectsToRemove = [];
-      sceneRef.current.traverse((object) => {
-        if (object instanceof THREE.Mesh && 
-            (object.material.color.getHex() === 0xff4444 || 
-             object.material.color.getHex() === 0x44ff44)) {
-          objectsToRemove.push(object);
-        }
-      });
-      objectsToRemove.forEach(obj => {
-        obj.geometry.dispose();
-        obj.material.dispose();
-        sceneRef.current.remove(obj);
-      });
-    }
-  }, []);const handleClick = (event) => {
-    if (gameState !== 'playing' || (mode === 'cpu' && currentPlayer === 'O')) return;
-
-    const raycaster = new THREE.Raycaster();
-    const mouse = new THREE.Vector2();
-
-    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, cameraRef.current);
-    const intersects = raycaster.intersectObjects(cellsRef.current);
-
-    if (intersects.length > 0) {
-      const cellIndex = intersects[0].object.userData.cellIndex;
-      makeMove(cellIndex);
-    }
-  };
+    gameObjectsRef.current.push(torus);
+  }, [getResponsiveScale]);
 
   const makeMove = useCallback((index) => {
     if (board[index] || gameState !== 'playing') return;
@@ -295,7 +350,67 @@ function App() {
     }
 
     setCurrentPlayer(currentPlayer === 'X' ? 'O' : 'X');
-  }, [board, currentPlayer, gameState]);
+  }, [board, currentPlayer, gameState, checkWinner, createX, createO]);
+
+  const makeCPUMove = useCallback(() => {
+    if (mode !== 'cpu' || currentPlayer === 'X' || gameState !== 'playing') return;
+
+    const moveIndex = findBestMove(board);
+    if (moveIndex !== -1) {
+      setTimeout(() => makeMove(moveIndex), 500);
+    }
+  }, [mode, currentPlayer, gameState, board, findBestMove, makeMove]);
+
+  useEffect(() => {
+    if (mode === 'cpu' && currentPlayer === 'O' && gameState === 'playing') {
+      makeCPUMove();
+    }
+  }, [currentPlayer, mode, gameState, makeCPUMove]);const handleStartGame = useCallback((selectedMode) => {
+    setMode(selectedMode);
+    setGameState('playing');
+    setBoard(Array(9).fill(null));
+    setCurrentPlayer('X');
+    setWinner(null);
+    
+    clearGameObjects();
+    createBoard();
+  }, [createBoard, clearGameObjects]);
+
+  const handleQuitToMenu = useCallback(() => {
+    clearGameObjects();
+    setGameState('menu');
+    setMode(null);
+    setBoard(Array(9).fill(null));
+    setCurrentPlayer('X');
+    setWinner(null);
+  }, [clearGameObjects]);
+
+  const handleClick = useCallback((event) => {
+    if (gameState !== 'playing' || (mode === 'cpu' && currentPlayer === 'O')) return;
+
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    // Calculate mouse position accounting for device pixel ratio
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, cameraRef.current);
+    const intersects = raycaster.intersectObjects(cellsRef.current);
+
+    if (intersects.length > 0) {
+      const cellIndex = intersects[0].object.userData.cellIndex;
+      makeMove(cellIndex);
+    }
+  }, [gameState, mode, currentPlayer, makeMove]);
+
+  useEffect(() => {
+    const cleanup = setupScene();
+    return () => {
+      cleanup();
+      clearGameObjects();
+    };
+  }, [setupScene, clearGameObjects]);
 
   return (
     <div className="w-full h-screen">
@@ -310,9 +425,20 @@ function App() {
       )}
 
       {gameState === 'playing' && (
-        <div className="absolute top-4 left-4 bg-black bg-opacity-50 p-4 rounded text-white">
-          Current Player: {currentPlayer}
-          {mode === 'cpu' && currentPlayer === 'O' && ' (CPU)'}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-black bg-opacity-70 px-8 py-4 rounded-lg shadow-lg text-center">
+          <div className="text-xl font-bold text-white">
+            {mode === 'cpu' ? (
+              currentPlayer === 'X' ? 
+                <span className="text-red-400">Your Turn (X)</span> : 
+                <span className="text-green-400">CPU's Turn (O)</span>
+            ) : (
+              <span>
+                Player <span className={currentPlayer === 'X' ? 'text-red-400' : 'text-green-400'}>
+                  {currentPlayer}
+                </span>'s Turn
+              </span>
+            )}
+          </div>
         </div>
       )}
 
@@ -321,6 +447,7 @@ function App() {
           winner={winner === 'draw' ? 'draw' : mode === 'cpu' ? 
             (winner === 'X' ? 'You' : 'CPU') : winner}
           onRestart={() => handleStartGame(mode)}
+          onQuit={handleQuitToMenu}
         />
       )}
     </div>
